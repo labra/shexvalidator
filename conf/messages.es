@@ -1,0 +1,11 @@
+Name=Validador de Shape Expressions
+ByURI=Mediante URI
+ByFile=Mediante fichero
+ByInput=Mediante teclado
+ByEndpoint=Mediante Endpoint SPARQL
+ByDereference=Mediante Dereferencia de URI
+RDFSelect=Elegir RDF
+ShExSelect=Elegir esquema ShEx
+Submit=Enviar 
+Input=Entrada
+IRI=IRI
