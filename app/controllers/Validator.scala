@@ -1,5 +1,7 @@
 package controllers
 
+import java.io.ByteArrayInputStream
+import org.apache.commons.io.FileUtils
 import play.api._
 import play.api.mvc._
 import play.api.libs.Files._
@@ -15,37 +17,52 @@ import es.weso.rdf.reader.RDFFromWeb
 import es.weso.monads.{Result => SchemaResult, Failure => SchemaFailure}
 import es.weso.shex.Typing
 import es.weso.monads.Passed
+import es.weso.rdf.reader.RDFFromJenaModel
+import es.weso.utils._
+import es.weso.parser.PrefixMap
 
 object Validator extends Controller {
+  
+    def validate = Action { request => {
+	     val result = 
+	       for ( mf <- getMultipartForm(request)
+	    	   ; input_rdf <- parseInputType(mf, "rdf")
+	    	   ; rdf <- parseRDF(mf, input_rdf)
+	    	   ; withSchema <- parseWithSchema(mf)
+	    	   ; input_shex <- parseInputType(mf, "schema")
+	    	   ; withIRI <- parseWithIRI(mf)
+	    	   ; withIncoming <- parseWithIncoming(mf)
+	    	   ; iri <- parseIRI(mf)
+	    	   ) yield {
 
-  def validate = Action { request => {
-	     val result = for ( mf <- getMultipartForm(request)
-	    		 		  ; input_rdf <- parseInputType(mf, "rdf")
-	    		 		  ; rdf <- parseRDF(mf, input_rdf)
-	    		 		  ; withSchema <- parseWithSchema(mf)
-	    		 		  ; input_shex <- parseInputType(mf, "schema")
-	    		 		  ; withIRI <- parseWithIRI(mf)
-	    		 		  ; iri <- parseIRI(mf)
-	    		 		  ) yield {
-
-	      val msg : String = 
+	      val vr : ValidationResult = 
 	        if (withSchema) {
-	         val res : SchemaResult[Typing] = 
-	           for ( schema <- liftTry(parseSchema(mf,input_shex))
-	               ; typing <- Schema.matchSchema(iri,rdf,schema,false) 
-	               ) yield typing  
-	         res.run.toString
+	         parseSchema(mf,input_shex) match {
+	           case Success((schema,pm)) => {
+	             if (withIRI) {
+	            	 val rs = Schema.matchSchema(iri,rdf,schema,withIncoming)
+	            	 ValidationResult("Schema valid",rs.run,pm)
+	             } else {
+	               // val rs = Schema.matchAll(rdf,schema,withIncoming)
+	               // ValidationResult("Schema valid",rs.run,pm)
+	               ValidationResult.withMessage("Not implemented match all. Select an IRI")
+	             } 
+	           }
+	           case Failure(e) => ValidationResult.failure(e)
+	         }
 	        } else {
-	          "RDF parsed" 
+	           ValidationResult.withMessage("RDF Parsed")
 	        }
-	      
+
+          val str_uri_rdf = parseKey(mf,"rdf_uri").getOrElse("") 
 	      val str_rdf = parseKey(mf,"rdf_textarea").getOrElse("")
 	      val str_schema = parseKey(mf,"schema_textarea").getOrElse("")
+          val str_uri_schema = parseKey(mf,"schema_uri").getOrElse("") 
 	      val str_iri = parseKey(mf,"iri").getOrElse("")
 
-	      views.html.index(msg, 
-   		 		  	      input_rdf,withSchema,input_shex,withIRI,
-   		 		  	      str_rdf,str_schema,str_iri)
+	      views.html.index(vr,
+   		 		  	       input_rdf,withSchema,input_shex,withIRI,
+   		 		  	       str_uri_rdf,str_rdf,str_uri_schema,str_schema,str_iri)
 	     } 
         result match {
 	       case Success(r) => Ok(r)
@@ -76,9 +93,19 @@ object Validator extends Controller {
   def parseWithIRI(mf: MultipartFormData[TemporaryFile]): Try[Boolean] = {
     for (value <- parseKey(mf,"withIRI")) yield {
       value match {
-        case "iriYes" => true
-        case "iriNo" => false
+        case "true" => true
+        case "false" => false
         case _ => throw new Exception("parseWithIRI: unknown value " + value)
+      }
+    }
+  }
+
+  def parseWithIncoming(mf: MultipartFormData[TemporaryFile]): Try[Boolean] = {
+    for (value <- parseKey(mf,"withIncoming")) yield {
+      value match {
+        case "true" => true
+        case "false" => false
+        case _ => throw new Exception("parseWithIncoming: unknown value " + value)
       }
     }
   }
@@ -113,13 +140,33 @@ object Validator extends Controller {
    inputType match {
      case ByUri => {
        for ( uri <- parseKey(mf,"rdf_uri")
-           ; ts <- RDFFromJenaModel.fromIRI(uri)
-           ) yield ts
+           ; model <- JenaUtils.parseFromURI(uri)
+           ) yield RDFFromJenaModel(model)
      }
      case ByFile => {
-       for ( file <- parseKey(mf,"rdf_file")
-           ; ts <- RDFFromJenaModel.fromFile(file)
-           ) yield ts 
+       mf.file("rdf_file") match {
+         case Some(f) => {
+           try {
+            val filename 		= f.filename
+            val contentType 	= f.contentType
+            println("Contenttype: " + contentType)
+            val input 			= new ByteArrayInputStream(FileUtils.readFileToByteArray(f.ref.file))
+            JenaUtils.parseInputStream(input,"") match {
+              case Parsed(model) => {
+                   Success(RDFFromJenaModel(model))
+                  }
+              case NotParsed(err) => {
+                   Failure(throw new Exception("Error parsing file: " + err))
+              }
+           }
+          } catch {
+            case e: Exception => Failure(e)
+          }
+         }
+         case None => {
+           Failure(throw new Exception("Input RDF by file but no file found for key rdf_file"))
+       }
+      }
      }
      case ByInput => {
        for ( cs <- parseKey(mf,"rdf_textarea")
@@ -140,14 +187,14 @@ object Validator extends Controller {
  def notImplementedYet[A] : Try[A] = 
    Failure(throw new Exception("Not implemented yet"))
 
- def parseSchema(mf: MultipartFormData[TemporaryFile],inputType: InputType): Try[Schema] = {
+ def parseSchema(mf: MultipartFormData[TemporaryFile],inputType: InputType): Try[(Schema,PrefixMap)] = {
    inputType match {
      case ByUri => notImplementedYet
      case ByFile => notImplementedYet
      case ByInput => {
        for ( cs <- parseKey(mf,"schema_textarea")
            ; (schema,pm) <- Schema.fromString(cs)
-           ) yield schema
+           ) yield (schema,pm)
      } 
      case _ => throw new Exception("parseSchema: non supported input type: " + inputType)
    }

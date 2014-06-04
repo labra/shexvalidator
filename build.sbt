@@ -15,6 +15,7 @@ libraryDependencies ++= Seq(
   , "org.slf4j" % "slf4j-simple" % "1.6.4"
   , "org.scalatest" % "scalatest_2.10" % "2.0.1-SNAP" % "test"
   , "commons-configuration" % "commons-configuration" % "1.7"
+  , "commons-io" % "commons-io" % "2.4"
   , "com.typesafe" % "config" % "1.0.1"
   , "org.scala-lang" % "scala-compiler" % "2.10.2" 
   , "org.apache.jena" % "jena-arq" % "2.10.1" excludeAll(ExclusionRule(organization = "org.slf4j"))

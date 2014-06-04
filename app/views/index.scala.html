@@ -1,20 +1,22 @@
-@(msg: String = "", 
+@(validationResult: ValidationResult = ValidationResult.empty,
   rdf_input: InputType = ByInput, 
   withSchema: Boolean = true, 
   schema_input:InputType = ByInput,  
   withIRI: Boolean = false,
+  str_uri_rdf: String = "",
   str_rdf: String = "",
+  str_uri_schema: String = "",
   str_schema: String = "",
   str_iri: String = ""
   )
+
 @import play.api.i18n.Messages
 
 @main("") {
-	
-@if(msg!="") {
-	<h1>Result</h1>
-	<pre>@msg</pre>
-}
+
+<p>Result</p>
+
+@Html(validationResult.toHTML(1))
 
 <h1>@Messages("Name")</h1>
 
@@ -44,7 +46,8 @@
 	  <input type="url" 
 		   name="rdf_uri" 
 		   id="rdf_uri" 
-		   size="45" />
+		   size="45" 
+		   placeholder="http://..." />
     </div> <!-- content -->
 </div> <!-- tab -->
 
@@ -86,6 +89,7 @@
          id="byEndpoint_RDF"
          name="rdf"
          value="byEndpoint"
+         placeholder="http://..."
          @{if (rdf_input == ByEndpoint) "checked"}>
 	<label for="byEndpoint_RDF">@Messages("ByEndpoint")</label>
  <div class="content">	
@@ -103,6 +107,7 @@
          id="byDereference_RDF"
          name="rdf"
          value="byDereference"
+         placeholder="http://..."
          @{if (rdf_input == ByDereference) "checked"}>
 	<label for="byDereference_RDF">@Messages("ByDereference")</label>
  <div class="content">	
@@ -152,7 +157,15 @@
 	  <input type="text" 
 		   name="schema_uri" 
 		   id="schema_uri" 
-		   size="45" />
+		   size="45" 
+		   placeholder="http://..." />
+
+  <!-- Options -->	
+  <p>WithIncoming:</p>
+    <input type="radio" id="withIncomingTrue" value="true" name="withIncoming">
+	<input type="radio" id="withIncomingTrue" value="false" name="withIncoming" checked>
+  
+	
     </div>
 </div> <!-- tab -->
 
@@ -168,6 +181,12 @@
 		   id="schema_file" 
 		   name="schema_file" 
 		   size="30" />
+
+    <!-- Options -->	
+   <p>WithIncoming:</p>
+    <input type="radio" id="withIncomingTrue" value="true" name="withIncoming">
+	<input type="radio" id="withIncomingTrue" value="false" name="withIncoming" checked>
+  
  </div>
 </div> <!-- tab -->
 
@@ -183,6 +202,12 @@
 		id="fragment" 
 		name="schema_textarea" 
 		rows="12" cols="80">@str_schema</textarea>
+		
+	<!-- Options -->	
+    <p>WithIncoming:</p>
+    <input type="radio" id="withIncomingTrue" value="true" name="withIncoming">
+	<input type="radio" id="withIncomingTrue" value="false" name="withIncoming" checked>
+		
  </div>
 
  </div> <!-- tab -->
@@ -195,10 +220,10 @@
 <div class="tab">
 <input type="radio"
        id="iriNo"
-       value="iriNo"
+       value="false"
        name="withIRI" 
        @{if (withIRI == false) "checked"}>
-<label for="iriNo">All IRIs</label>
+<label for="iriNo">No IRI (All)</label>
 <div class="content"></div> 
 </div> <!-- tab no iri -->
 
@@ -206,7 +231,7 @@
 <div class="tab">
 <input type="radio"
        id="iriYes"
-       value="iriYes"
+       value="true"
        name="withIRI" 
        @{if (withIRI == true) "checked"}>
 <label for="iriYes">With IRI</label>
