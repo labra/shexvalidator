@@ -189,8 +189,27 @@ object Validator extends Controller {
 
  def parseSchema(mf: MultipartFormData[TemporaryFile],inputType: InputType): Try[(Schema,PrefixMap)] = {
    inputType match {
-     case ByUri => notImplementedYet
-     case ByFile => notImplementedYet
+     case ByUri => {
+       notImplementedYet
+     }
+     case ByFile => {
+       mf.file("schema_file") match {
+         case Some(f) => {
+           try {
+            val filename 		= f.filename
+            val contentType 	= f.contentType
+            println("Contenttype: " + contentType)
+            val input 			= new ByteArrayInputStream(FileUtils.readFileToByteArray(f.ref.file))
+            notImplementedYet
+           } catch {
+            case e: Exception => Failure(e)
+          }
+         }
+         case None => {
+           Failure(throw new Exception("Input RDF by file but no file found for key rdf_file"))
+       }
+      }
+     }
      case ByInput => {
        for ( cs <- parseKey(mf,"schema_textarea")
            ; (schema,pm) <- Schema.fromString(cs)
